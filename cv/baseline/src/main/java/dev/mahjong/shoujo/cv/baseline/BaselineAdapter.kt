@@ -2,6 +2,7 @@ package dev.mahjong.shoujo.cv.baseline
 
 import android.content.Context
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.mahjong.shoujo.cv.api.TileRecognitionEngine
 import dev.mahjong.shoujo.cv.api.model.ModelInfo
@@ -87,9 +88,13 @@ class BaselineAdapter @Inject constructor(
             try {
                 val startMs = System.currentTimeMillis()
 
+                // TODO(Phase 1): handle formats other than JPEG/PNG via input.format
                 val bitmap: Bitmap = when (input) {
-                    is RecognitionInput.BitmapInput -> input.bitmap
-                    is RecognitionInput.UriInput    -> preprocessor.loadFromUri(input.uri)
+                    is RecognitionInput.BytesInput ->
+                        BitmapFactory.decodeByteArray(input.bytes, 0, input.bytes.size)
+                            ?: return@withContext RecognitionOutcome.Failure.InputError(
+                                "Failed to decode image bytes (format=${input.format})"
+                            )
                 }
 
                 // TODO(Phase 1): letterbox → model input tensor

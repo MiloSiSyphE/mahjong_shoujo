@@ -8,8 +8,12 @@ import dev.mahjong.shoujo.cv.api.TileId
  * This is part of the Stable Intermediate Representation (IR).
  * It must survive model replacement — every field here should have a
  * well-defined meaning regardless of which model produced it.
+ *
+ * Nullable fields mean "this model did not provide this information."
+ * Downstream code must degrade gracefully to user confirmation for any null field.
  */
 data class DetectedTile(
+    // ── Classification ────────────────────────────────────────────────
     /**
      * Ordered list of tile candidates for this detection, highest confidence first.
      * The adapter MUST always include at least one candidate.
@@ -19,6 +23,10 @@ data class DetectedTile(
      */
     val candidates: List<RecognitionCandidate>,
 
+    /** Whether the model flagged this as an akadora (red five). */
+    val isAkadora: Boolean = false,
+
+    // ── Geometry ──────────────────────────────────────────────────────
     /**
      * Spatial location of the tile in the input image, normalised to [0,1].
      * Null if the model does not produce bounding boxes (e.g., a pure classifier).
@@ -26,17 +34,45 @@ data class DetectedTile(
     val bbox: NormalizedBbox?,
 
     /**
-     * Hint about which logical group this tile belongs to within the hand.
-     * E.g., closed tiles vs. open meld index.
-     * May be null if the model does not segment the hand into groups.
+     * Clockwise rotation of the tile in degrees (0, 90, 180, 270).
+     * Null if model does not predict orientation.
+     * Primarily useful for real-photo models where tiles may be rotated.
      */
-    val groupHint: GroupHint?,
+    val orientationDegrees: Int? = null,
+
+    // ── Layout semantics ──────────────────────────────────────────────
+    /**
+     * Structural role of this tile within the hand layout.
+     * Null if the model does not segment the hand.
+     */
+    val layoutRole: LayoutRole? = null,
 
     /**
-     * Estimated order/index of this tile within its group, left-to-right.
-     * Null if ordering cannot be determined.
+     * Opaque group identifier. Tiles with the same non-null groupId are
+     * hypothesised by the model to belong to the same meld or hand segment.
+     * Group semantics (meld type etc.) are determined in the correction stage.
      */
-    val positionIndex: Int?,
+    val groupId: String? = null,
+
+    /**
+     * Suggested display/reading order index within its group, 0-based.
+     * Null if ordering cannot be inferred.
+     */
+    val readingOrder: Int? = null,
+
+    // ── Uncertainty ───────────────────────────────────────────────────
+    /**
+     * Overall detection confidence (from the detector head, distinct from
+     * classification confidence). Null for models without a detection head.
+     */
+    val detectionConfidence: Float? = null,
+
+    // ── Debug ─────────────────────────────────────────────────────────
+    /**
+     * Adapter-specific key/value metadata (e.g. raw YOLO objectness score).
+     * Never used for decisions; for logging and diagnostics only.
+     */
+    val debugMetadata: Map<String, String> = emptyMap(),
 ) {
     /** Convenience: the top candidate TileId, or UNKNOWN if candidates is empty. */
     val topTileId: TileId get() = candidates.firstOrNull()?.tileId ?: TileId.UNKNOWN
@@ -72,11 +108,19 @@ data class NormalizedBbox(
     val cy:     Float get() = top + height / 2f
 }
 
-enum class GroupHint {
+/**
+ * Structural role of a tile within the hand layout.
+ * Replaces the old GroupHint enum — more expressive and not limited to four melds.
+ */
+enum class LayoutRole {
+    /** Part of the concealed tiles dealt to the player. */
     CLOSED_HAND,
-    OPEN_MELD_0,
-    OPEN_MELD_1,
-    OPEN_MELD_2,
-    OPEN_MELD_3,
+    /** The winning tile (tsumo or ron). */
+    WINNING_TILE,
+    /** A tile in an open meld (chi/pon/kan). */
+    OPEN_MELD,
+    /** A tile in a declared kan (open or concealed). */
+    KAN,
+    /** Role not yet assigned or model did not provide a hint. */
     UNKNOWN,
 }

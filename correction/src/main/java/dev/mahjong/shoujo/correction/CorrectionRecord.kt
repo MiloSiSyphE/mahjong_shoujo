@@ -6,17 +6,36 @@ import androidx.room.PrimaryKey
 import com.squareup.moshi.JsonClass
 import dev.mahjong.shoujo.cv.api.TileId
 import dev.mahjong.shoujo.cv.api.model.CaptureType
+import dev.mahjong.shoujo.cv.api.model.LayoutRole
+
+/**
+ * Type of user interaction that generated a correction record.
+ * The correction_type column discriminates which other fields are relevant.
+ */
+enum class CorrectionType {
+    /** User accepted the model's prediction without change. */
+    ACCEPTED,
+    /** User corrected the tile identity (including akadora flag). */
+    CLASSIFICATION_CORRECTION,
+    /** User deleted a false-positive detection. */
+    FALSE_POSITIVE_DELETION,
+    /** User inserted a tile the model missed entirely. */
+    MISSING_TILE_INSERTION,
+    /** User adjusted the bounding box. */
+    BBOX_ADJUSTMENT,
+    /** User reassigned a tile's layout role (e.g. CLOSED_HAND → WINNING_TILE). */
+    LAYOUT_ROLE_ASSIGNMENT,
+    /** User changed which group a tile belongs to. */
+    GROUPING_CHANGE,
+}
 
 /**
  * Schema for a single correction event.
  *
- * A correction record is created whenever the user changes or confirms a tile
- * that differed from (or was absent in) the model's prediction.
- *
- * Each record is a future training example:
- *   input  = (imageHash, bbox) → the image crop of the tile
- *   label  = correctedTileId
- *   weight = inverse of modelConfidence (uncertain predictions are more valuable)
+ * This is a type-discriminated record: [correctionType] indicates which fields
+ * are populated. Fields irrelevant to the correction type are null.
+ * All columns added in v2 are nullable so no migration is required beyond the
+ * schema version bump (using fallbackToDestructiveMigration during development).
  *
  * Design goals:
  *   - Lossless: preserves original prediction so we can measure model improvement.
@@ -48,7 +67,6 @@ data class CorrectionRecord(
 
     /**
      * Absolute path to the source image on device storage.
-     * May be a screenshot or a camera photo.
      * Null if the image was not saved (e.g., transient bitmap).
      */
     @ColumnInfo(name = "image_path")
@@ -58,15 +76,7 @@ data class CorrectionRecord(
     @ColumnInfo(name = "capture_type")
     val captureType: CaptureType,
 
-    // ── Bounding box (normalised) ──────────────────────────────────────────────
-
-    /** Normalised [0,1] bounding box of the tile in the source image. */
-    @ColumnInfo(name = "bbox_left")   val bboxLeft:   Float?,
-    @ColumnInfo(name = "bbox_top")    val bboxTop:    Float?,
-    @ColumnInfo(name = "bbox_right")  val bboxRight:  Float?,
-    @ColumnInfo(name = "bbox_bottom") val bboxBottom: Float?,
-
-    // ── Model prediction ───────────────────────────────────────────────────────
+    // ── Model metadata ─────────────────────────────────────────────────────────
 
     /** ID string of the model that produced the original prediction. */
     @ColumnInfo(name = "model_id")
@@ -78,7 +88,15 @@ data class CorrectionRecord(
     @ColumnInfo(name = "model_architecture")
     val modelArchitecture: String,
 
-    /** The top-1 tile predicted by the model, or null if no detection was found. */
+    // ── Correction type ────────────────────────────────────────────────────────
+
+    /** Discriminates which other fields in this record are relevant. */
+    @ColumnInfo(name = "correction_type")
+    val correctionType: CorrectionType,
+
+    // ── Prediction (relevant for all types except MISSING_TILE_INSERTION) ─────
+
+    /** The top-1 tile predicted by the model. Null for MISSING_TILE_INSERTION. */
     @ColumnInfo(name = "predicted_tile_id")
     val predictedTileId: TileId?,
 
@@ -89,25 +107,66 @@ data class CorrectionRecord(
     /**
      * JSON array of the top-k alternatives the model produced, e.g.:
      * [{"tile":"MAN_3","confidence":0.81},{"tile":"MAN_2","confidence":0.09}]
-     * Stored as a string to avoid schema churn when k changes.
      */
     @ColumnInfo(name = "top_k_candidates_json")
     val topKCandidatesJson: String?,
 
-    // ── Correction ─────────────────────────────────────────────────────────────
+    /** Model's akadora hypothesis for the predicted tile. Null if not applicable. */
+    @ColumnInfo(name = "predicted_is_akadora")
+    val predictedIsAkadora: Boolean?,
 
-    /** The tile identity confirmed by the user. This is the ground-truth label. */
+    // ── Ground truth (relevant for ACCEPTED, CLASSIFICATION_CORRECTION, MISSING_TILE_INSERTION) ──
+
+    /** Ground-truth tile id confirmed by the user. Null for FALSE_POSITIVE_DELETION. */
     @ColumnInfo(name = "corrected_tile_id")
-    val correctedTileId: TileId,
+    val correctedTileId: TileId?,
+
+    /** User-confirmed akadora status. Null for deletion and spatial-only corrections. */
+    @ColumnInfo(name = "corrected_is_akadora")
+    val correctedIsAkadora: Boolean?,
+
+    // ── Bounding box (normalised) ──────────────────────────────────────────────
+
+    /** Normalised [0,1] bounding box of the tile as predicted by the model. */
+    @ColumnInfo(name = "bbox_left")   val bboxLeft:   Float?,
+    @ColumnInfo(name = "bbox_top")    val bboxTop:    Float?,
+    @ColumnInfo(name = "bbox_right")  val bboxRight:  Float?,
+    @ColumnInfo(name = "bbox_bottom") val bboxBottom: Float?,
+
+    /** User-adjusted bbox. Null unless correction type is BBOX_ADJUSTMENT or MISSING_TILE_INSERTION. */
+    @ColumnInfo(name = "corrected_bbox_left")   val correctedBboxLeft:   Float? = null,
+    @ColumnInfo(name = "corrected_bbox_top")    val correctedBboxTop:    Float? = null,
+    @ColumnInfo(name = "corrected_bbox_right")  val correctedBboxRight:  Float? = null,
+    @ColumnInfo(name = "corrected_bbox_bottom") val correctedBboxBottom: Float? = null,
+
+    // ── Layout role (relevant for LAYOUT_ROLE_ASSIGNMENT) ─────────────────────
+
+    /** Model's LayoutRole hypothesis. Null if not applicable. */
+    @ColumnInfo(name = "predicted_layout_role")
+    val predictedLayoutRole: LayoutRole? = null,
+
+    /** User-assigned LayoutRole. Null if not applicable. */
+    @ColumnInfo(name = "corrected_layout_role")
+    val correctedLayoutRole: LayoutRole? = null,
+
+    // ── Grouping (relevant for GROUPING_CHANGE) ───────────────────────────────
+
+    /** Model's group id hypothesis. Null if not applicable. */
+    @ColumnInfo(name = "predicted_group_id")
+    val predictedGroupId: String? = null,
+
+    /** User-assigned group id. Null if not applicable. */
+    @ColumnInfo(name = "corrected_group_id")
+    val correctedGroupId: String? = null,
+
+    // ── Export state ───────────────────────────────────────────────────────────
 
     /**
      * True if the user actively changed the model's prediction.
-     * False if the user accepted it (but we still log for confidence calibration).
+     * False if the user accepted it (still logged for confidence calibration).
      */
     @ColumnInfo(name = "was_model_wrong")
     val wasModelWrong: Boolean,
-
-    // ── Export state ───────────────────────────────────────────────────────────
 
     /** False until this record has been included in a [CorrectionRecordExporter] export. */
     @ColumnInfo(name = "is_exported")

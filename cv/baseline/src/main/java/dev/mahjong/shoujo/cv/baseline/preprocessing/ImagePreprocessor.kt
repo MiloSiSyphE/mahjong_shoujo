@@ -1,17 +1,19 @@
 package dev.mahjong.shoujo.cv.baseline.preprocessing
 
-import android.graphics.Bitmap
-import android.net.Uri
 import android.content.Context
+import android.graphics.Bitmap
 import dev.mahjong.shoujo.cv.baseline.BaselineConfig
 
 /**
- * Converts raw input images into the float tensor expected by the baseline model.
+ * Converts a decoded [Bitmap] into the float tensor expected by the baseline model.
  *
  * BASELINE-SPECIFIC: The normalisation formula, resize strategy, and channel order
  * are all properties of the current model training pipeline.
- * When the model changes, this class changes — nothing outside :cv:baseline
- * should be affected.
+ * When the model changes, this class changes — nothing outside :cv:baseline is affected.
+ *
+ * The caller (BaselineAdapter) is responsible for decoding bytes → Bitmap.
+ * URI / file loading is handled by UriImageLoader in :app. This class only
+ * knows about Bitmaps and tensors.
  *
  * Assumptions for the current baseline (screenshot-oriented model):
  *   - Input: RGB, 0-255 pixel values
@@ -26,15 +28,6 @@ import dev.mahjong.shoujo.cv.baseline.BaselineConfig
 class ImagePreprocessor(private val context: Context) {
 
     /**
-     * Loads a Bitmap from a content URI.
-     * Handles sampling / downscaling for very large gallery images.
-     */
-    fun loadFromUri(uri: Uri): Bitmap {
-        // TODO(Phase 1): implement with BitmapFactory + inSampleSize to cap memory usage
-        throw NotImplementedError("loadFromUri not yet implemented")
-    }
-
-    /**
      * Resizes [bitmap] to [BaselineConfig.INPUT_WIDTH] × [BaselineConfig.INPUT_HEIGHT]
      * using letterboxing (padding with grey, not stretching).
      *
@@ -47,7 +40,7 @@ class ImagePreprocessor(private val context: Context) {
     }
 
     /**
-     * Converts a letterboxed [Bitmap] to a float32 ByteBuffer in NHWC layout,
+     * Converts a letterboxed [Bitmap] to a float32 array in NHWC layout,
      * normalised to [0, 1].
      */
     fun toModelInput(letterboxed: Bitmap): FloatArray {
