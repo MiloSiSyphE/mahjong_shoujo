@@ -7,7 +7,11 @@ package dev.mahjong.shoujo.domain.model
  * The mapping from cv.api.TileId → Tile lives in the app layer (IrMapper).
  */
 sealed class Tile {
-    data class NumberTile(val suit: NumberSuit, val number: Int) : Tile() {
+    data class NumberTile(
+        val suit: NumberSuit,
+        val number: Int,
+        val isAkadora: Boolean = false,
+    ) : Tile() {
         init { require(number in 1..9) { "Tile number must be 1..9, got $number" } }
     }
     data class HonorTile(val honor: Honor) : Tile()

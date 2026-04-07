@@ -1,27 +1,30 @@
 package dev.mahjong.shoujo.cv.api.model
 
-import android.graphics.Bitmap
-import android.net.Uri
-
 /**
- * Sealed input type so the recognition engine can handle different image sources
- * without exposing Bitmap-specific logic to callers.
+ * Platform-neutral input to the recognition engine.
  *
- * Adapters that need a Bitmap should convert internally.
+ * Android-specific conversions (Bitmap → ByteArray, Uri → ByteArray) belong in
+ * :cv:baseline or :app, not here. This keeps :cv:api free of the Android SDK and
+ * fully testable on the JVM.
  */
 sealed class RecognitionInput {
     abstract val captureType: CaptureType
 
-    data class BitmapInput(
-        val bitmap: Bitmap,
-        override val captureType: CaptureType,
-    ) : RecognitionInput()
-
-    data class UriInput(
-        val uri: Uri,
+    /**
+     * Raw image bytes (e.g. JPEG or PNG) with declared dimensions.
+     * The adapter is responsible for decoding.
+     */
+    @Suppress("ArrayInDataClass")
+    data class BytesInput(
+        val bytes: ByteArray,
+        val widthPx: Int,
+        val heightPx: Int,
+        val format: ImageFormat,
         override val captureType: CaptureType,
     ) : RecognitionInput()
 }
+
+enum class ImageFormat { JPEG, PNG, RGB_888 }
 
 enum class CaptureType {
     /** Image originated from a digital screenshot (Majsoul, Tenhou, etc.). */

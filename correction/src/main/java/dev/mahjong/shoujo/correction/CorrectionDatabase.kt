@@ -8,8 +8,9 @@ import androidx.room.TypeConverter
 import androidx.room.TypeConverters
 import dev.mahjong.shoujo.cv.api.TileId
 import dev.mahjong.shoujo.cv.api.model.CaptureType
+import dev.mahjong.shoujo.cv.api.model.LayoutRole
 
-@Database(entities = [CorrectionRecord::class], version = 1, exportSchema = true)
+@Database(entities = [CorrectionRecord::class], version = 2, exportSchema = true)
 @TypeConverters(CorrectionTypeConverters::class)
 abstract class CorrectionDatabase : RoomDatabase() {
     abstract fun correctionDao(): CorrectionDao
@@ -27,4 +28,8 @@ class CorrectionTypeConverters {
     @TypeConverter fun stringToTileId(v: String?): TileId? = v?.let { TileId.valueOf(it) }
     @TypeConverter fun captureTypeToString(v: CaptureType): String = v.name
     @TypeConverter fun stringToCaptureType(v: String): CaptureType = CaptureType.valueOf(v)
+    @TypeConverter fun correctionTypeToString(v: CorrectionType): String = v.name
+    @TypeConverter fun stringToCorrectionType(v: String): CorrectionType = CorrectionType.valueOf(v)
+    @TypeConverter fun layoutRoleToString(v: LayoutRole?): String? = v?.name
+    @TypeConverter fun stringToLayoutRole(v: String?): LayoutRole? = v?.let { LayoutRole.valueOf(it) }
 }

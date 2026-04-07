@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.mahjong.shoujo.cv.api.TileRecognitionEngine
 import dev.mahjong.shoujo.cv.api.model.CaptureType
+import dev.mahjong.shoujo.cv.api.model.ImageFormat
 import dev.mahjong.shoujo.cv.api.model.RecognitionInput
 import dev.mahjong.shoujo.cv.api.model.RecognitionOutcome
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,11 +29,23 @@ class MainViewModel @Inject constructor(
     val modelInfo get() = recognitionEngine.modelInfo
 
     fun onScreenshotSelected(uri: Uri) {
-        runRecognition(RecognitionInput.UriInput(uri, CaptureType.SCREENSHOT))
+        // TODO(Phase 1): resolve Uri → ByteArray in a use-case or via a helper in :app;
+        //   the ViewModel should receive bytes, not a Uri. See DESIGN.md §5.3.
+        runRecognition(uriToByteInput(uri, CaptureType.SCREENSHOT))
     }
 
     fun onGalleryImageSelected(uri: Uri) {
-        runRecognition(RecognitionInput.UriInput(uri, CaptureType.GALLERY_PHOTO))
+        // TODO(Phase 1): same as onScreenshotSelected — wire up Uri→ByteArray conversion.
+        runRecognition(uriToByteInput(uri, CaptureType.GALLERY_PHOTO))
+    }
+
+    /**
+     * Placeholder until Phase 1 implements proper Uri → ByteArray loading.
+     * The button that triggers this is disabled (modelIsReady = false) in Phase 0.
+     */
+    private fun uriToByteInput(uri: Uri, captureType: CaptureType): RecognitionInput.BytesInput {
+        // TODO(Phase 1): open ContentResolver, read bytes, detect format
+        throw NotImplementedError("Uri→BytesInput conversion not yet implemented (Phase 1 TODO). Uri=$uri")
     }
 
     /** Phase 0: skip CV entirely, go straight to manual tile entry. */
