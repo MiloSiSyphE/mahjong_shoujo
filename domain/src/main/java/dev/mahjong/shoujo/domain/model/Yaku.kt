@@ -49,18 +49,19 @@ enum class Yaku(
     CHINITSU         ("清一色", "Chinitsu",            6,  5),
 
     // ---- Yakuman ----
-    KOKUSHI_MUSOU    ("国士無双", "Kokushi Musou",     YAKUMAN_HAN, -1, true),
-    SUUANKOU         ("四暗刻",  "Suuankou",           YAKUMAN_HAN, -1, true),
-    DAISANGEN        ("大三元",  "Daisangen",          YAKUMAN_HAN, YAKUMAN_HAN, true),
-    SHOSUUSHI        ("小四喜",  "Shosuushi",          YAKUMAN_HAN, YAKUMAN_HAN, true),
-    DAISUUSHI        ("大四喜",  "Daisuushi",          YAKUMAN_HAN, YAKUMAN_HAN, true),
-    TSUUIISOU        ("字一色",  "Tsuuiisou",          YAKUMAN_HAN, YAKUMAN_HAN, true),
-    CHINROUTOU       ("清老頭",  "Chinroutou",         YAKUMAN_HAN, YAKUMAN_HAN, true),
-    RYUUIISOU        ("緑一色",  "Ryuuiisou",          YAKUMAN_HAN, YAKUMAN_HAN, true),
-    CHUUREN_POUTOU   ("九蓮宝燈", "Chuuren Poutou",   YAKUMAN_HAN, -1, true),
-    SUUKANTSU        ("四槓子",  "Suukantsu",          YAKUMAN_HAN, YAKUMAN_HAN, true),
-    TENHOU           ("天和",    "Tenhou",             YAKUMAN_HAN, -1, true),
-    CHIIHOU          ("地和",    "Chiihou",            YAKUMAN_HAN, -1, true),
+    // Note: literal 13 used instead of YAKUMAN_HAN to satisfy K2 companion-init ordering.
+    KOKUSHI_MUSOU    ("国士無双", "Kokushi Musou",     13, -1, true),
+    SUUANKOU         ("四暗刻",  "Suuankou",           13, -1, true),
+    DAISANGEN        ("大三元",  "Daisangen",          13, 13, true),
+    SHOSUUSHI        ("小四喜",  "Shosuushi",          13, 13, true),
+    DAISUUSHI        ("大四喜",  "Daisuushi",          13, 13, true),
+    TSUUIISOU        ("字一色",  "Tsuuiisou",          13, 13, true),
+    CHINROUTOU       ("清老頭",  "Chinroutou",         13, 13, true),
+    RYUUIISOU        ("緑一色",  "Ryuuiisou",          13, 13, true),
+    CHUUREN_POUTOU   ("九蓮宝燈", "Chuuren Poutou",   13, -1, true),
+    SUUKANTSU        ("四槓子",  "Suukantsu",          13, 13, true),
+    TENHOU           ("天和",    "Tenhou",             13, -1, true),
+    CHIIHOU          ("地和",    "Chiihou",            13, -1, true),
     ;
 
     companion object {
